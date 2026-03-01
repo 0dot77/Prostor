@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, ExternalLink, Trash2, Loader2, Link2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { getBrandInfo, getDomain, stringToHue } from "@/lib/brand-utils";
 import type { SlideResource } from "@/lib/types";
 
 interface SlideResourcesBarProps {
@@ -112,15 +113,6 @@ export function SlideResourcesBar({ slideId, isAdmin }: SlideResourcesBarProps) 
     }
   };
 
-  // Extract domain from URL
-  const getDomain = (urlStr: string) => {
-    try {
-      return new URL(urlStr).hostname.replace("www.", "");
-    } catch {
-      return urlStr;
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex h-24 items-center justify-center border-t bg-background">
@@ -192,33 +184,63 @@ export function SlideResourcesBar({ slideId, isAdmin }: SlideResourcesBarProps) 
                 rel="noopener noreferrer"
                 className="group relative flex w-64 shrink-0 gap-3 rounded-lg border bg-card p-2.5 transition-shadow hover:shadow-md"
               >
-                {/* OG Image */}
-                {resource.og_image ? (
-                  <img
-                    src={resource.og_image}
-                    alt=""
-                    className="h-14 w-20 rounded object-cover shrink-0"
-                  />
-                ) : (
-                  <div className="flex h-14 w-20 items-center justify-center rounded bg-muted shrink-0">
-                    <ExternalLink className="h-5 w-5 text-muted-foreground/30" />
-                  </div>
-                )}
+                {/* Thumbnail */}
+                {(() => {
+                  const brand = getBrandInfo(resource.url);
+                  if (resource.og_image) {
+                    return (
+                      <img
+                        src={resource.og_image}
+                        alt=""
+                        className="h-14 w-20 rounded object-cover shrink-0"
+                      />
+                    );
+                  }
+                  if (brand) {
+                    return (
+                      <div
+                        className="flex h-14 w-20 items-center justify-center rounded shrink-0"
+                        style={{ backgroundColor: brand.color, color: brand.textColor }}
+                      >
+                        <span className="text-base font-bold">{brand.icon}</span>
+                      </div>
+                    );
+                  }
+                  const hue = stringToHue(getDomain(resource.url));
+                  return (
+                    <div
+                      className="flex h-14 w-20 items-center justify-center rounded shrink-0"
+                      style={{ backgroundColor: `hsl(${hue}, 40%, 90%)`, color: `hsl(${hue}, 50%, 35%)` }}
+                    >
+                      <span className="text-sm font-bold">
+                        {getDomain(resource.url).charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  );
+                })()}
 
                 {/* Text */}
-                <div className="flex flex-col justify-center min-w-0 flex-1">
-                  <p className="text-xs font-medium truncate leading-tight">
-                    {resource.og_title || getDomain(resource.url)}
-                  </p>
-                  {resource.og_description && (
-                    <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">
-                      {resource.og_description}
-                    </p>
-                  )}
-                  <p className="text-[10px] text-muted-foreground/50 mt-0.5">
-                    {resource.og_site_name || getDomain(resource.url)}
-                  </p>
-                </div>
+                {(() => {
+                  const brand = getBrandInfo(resource.url);
+                  const displayName = resource.og_title || brand?.name || getDomain(resource.url);
+                  const siteName = resource.og_site_name || brand?.name || getDomain(resource.url);
+                  return (
+                    <div className="flex flex-col justify-center min-w-0 flex-1">
+                      <p className="text-xs font-medium truncate leading-tight">
+                        {displayName}
+                      </p>
+                      {resource.og_description && (
+                        <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">
+                          {resource.og_description}
+                        </p>
+                      )}
+                      <p className="text-[10px] text-muted-foreground/50 mt-0.5">
+                        {siteName}
+                      </p>
+                    </div>
+                  );
+                })()}
+
 
                 {/* Delete button (admin) */}
                 {isAdmin && (
