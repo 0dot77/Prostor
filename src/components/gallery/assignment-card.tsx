@@ -31,6 +31,9 @@ export function AssignmentCard({
   onDelete,
 }: AssignmentCardProps) {
   const [loaded, setLoaded] = useState(false);
+  const [imgSrc, setImgSrc] = useState(
+    assignment.thumbnail_url || assignment.image_url
+  );
   const canModify = isAdmin || assignment.user_id === currentUserId;
 
   const userName =
@@ -64,12 +67,16 @@ export function AssignmentCard({
           <div className="aspect-square w-full animate-pulse bg-muted" />
         )}
         <img
-          src={assignment.thumbnail_url}
+          src={imgSrc}
           alt={assignment.title ?? "과제 이미지"}
-          className={`w-full object-cover transition-transform duration-300 group-hover:scale-105 ${
-            loaded ? "block" : "hidden"
-          }`}
+          className="w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          style={loaded ? undefined : { position: "absolute", opacity: 0 }}
           onLoad={() => setLoaded(true)}
+          onError={() => {
+            if (imgSrc !== assignment.image_url) {
+              setImgSrc(assignment.image_url);
+            }
+          }}
           loading="lazy"
         />
       </div>
