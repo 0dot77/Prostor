@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,9 +11,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, ExternalLink, Trash2, Loader2, Link2 } from "lucide-react";
+import { Plus, Trash2, Loader2, Link2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getBrandInfo, getDomain, stringToHue } from "@/lib/brand-utils";
+import { getBrandInfo, getDomain, stringToHue, getValidOgImage } from "@/lib/brand-utils";
 import type { SlideResource } from "@/lib/types";
 
 interface SlideResourcesBarProps {
@@ -182,72 +181,112 @@ export function SlideResourcesBar({ slideId, isAdmin }: SlideResourcesBarProps) 
                 href={resource.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group relative flex w-64 shrink-0 gap-3 rounded-lg border bg-card p-2.5 transition-shadow hover:shadow-md"
+                className="group relative w-52 shrink-0 rounded-xl overflow-hidden transition-shadow hover:shadow-lg"
+                style={{ aspectRatio: "16 / 10" }}
               >
-                {/* Thumbnail */}
+                {/* Background layer: OG image > brand color > hue fallback */}
                 {(() => {
                   const brand = getBrandInfo(resource.url);
-                  if (resource.og_image) {
+                  const validImage = getValidOgImage(resource.og_image);
+                  const hasImage = !!validImage;
+
+                  if (hasImage) {
                     return (
-                      <img
-                        src={resource.og_image}
-                        alt=""
-                        className="h-14 w-20 rounded object-cover shrink-0"
-                      />
+                      <div className="absolute inset-0">
+                        <img
+                          src={validImage!}
+                          alt=""
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                      </div>
                     );
                   }
                   if (brand) {
                     return (
                       <div
-                        className="flex h-14 w-20 items-center justify-center rounded shrink-0"
-                        style={{ backgroundColor: brand.color, color: brand.textColor }}
+                        className="absolute inset-0 flex items-center justify-center"
+                        style={{ backgroundColor: brand.color }}
                       >
-                        <span className="text-base font-bold">{brand.icon}</span>
+                        <span
+                          className="text-[56px] font-black opacity-10 select-none"
+                          style={{ color: brand.textColor }}
+                        >
+                          {brand.icon}
+                        </span>
                       </div>
                     );
                   }
                   const hue = stringToHue(getDomain(resource.url));
                   return (
                     <div
-                      className="flex h-14 w-20 items-center justify-center rounded shrink-0"
-                      style={{ backgroundColor: `hsl(${hue}, 40%, 90%)`, color: `hsl(${hue}, 50%, 35%)` }}
+                      className="absolute inset-0 flex items-center justify-center"
+                      style={{ backgroundColor: `hsl(${hue}, 30%, 25%)` }}
                     >
-                      <span className="text-sm font-bold">
+                      <span
+                        className="text-[56px] font-black opacity-10 select-none"
+                        style={{ color: `hsl(${hue}, 40%, 70%)` }}
+                      >
                         {getDomain(resource.url).charAt(0).toUpperCase()}
                       </span>
                     </div>
                   );
                 })()}
 
-                {/* Text */}
+                {/* Gradient overlay */}
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background:
+                      "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.05) 100%)",
+                  }}
+                />
+
+                {/* Content at bottom */}
                 {(() => {
                   const brand = getBrandInfo(resource.url);
-                  const displayName = resource.og_title || brand?.name || getDomain(resource.url);
-                  const siteName = resource.og_site_name || brand?.name || getDomain(resource.url);
+                  const domain = getDomain(resource.url);
+                  const displayName = resource.og_title || brand?.name || domain;
                   return (
-                    <div className="flex flex-col justify-center min-w-0 flex-1">
-                      <p className="text-xs font-medium truncate leading-tight">
+                    <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1 p-2.5">
+                      {/* Brand icon + name row */}
+                      <div className="flex items-center gap-1.5">
+                        {brand ? (
+                          <span
+                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold"
+                            style={{ backgroundColor: brand.color, color: brand.textColor }}
+                          >
+                            {brand.icon}
+                          </span>
+                        ) : (
+                          (() => {
+                            const hue = stringToHue(domain);
+                            return (
+                              <span
+                                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold"
+                                style={{ backgroundColor: `hsl(${hue}, 35%, 40%)`, color: "#fff" }}
+                              >
+                                {domain.charAt(0).toUpperCase()}
+                              </span>
+                            );
+                          })()
+                        )}
+                        <span className="text-[11px] font-semibold text-white truncate">
+                          {brand?.name || domain}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-white/70 truncate leading-tight">
                         {displayName}
-                      </p>
-                      {resource.og_description && (
-                        <p className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">
-                          {resource.og_description}
-                        </p>
-                      )}
-                      <p className="text-[10px] text-muted-foreground/50 mt-0.5">
-                        {siteName}
                       </p>
                     </div>
                   );
                 })()}
-
 
                 {/* Delete button (admin) */}
                 {isAdmin && (
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute -right-1 -top-1 h-5 w-5 rounded-full bg-background border opacity-0 group-hover:opacity-100 text-destructive"
+                    className="absolute right-1 top-1 h-5 w-5 rounded-full bg-black/40 text-white opacity-0 group-hover:opacity-100 hover:bg-black/60 backdrop-blur-sm"
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();

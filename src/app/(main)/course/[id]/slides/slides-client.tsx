@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { SlideViewer } from "@/components/slides/slide-viewer";
 import { SlideResourcesBar } from "@/components/slides/slide-resources-bar";
+import { PipSlideViewer } from "@/components/slides/pip-slide-viewer";
 import { cn } from "@/lib/utils";
 import { FileText } from "lucide-react";
 import type { Week, Slide } from "@/lib/types";
@@ -83,6 +84,19 @@ export function SlidesClient({ weeks, slides, isAdmin }: SlidesClientProps) {
 
       {/* Slide Viewer + Resources Bar (center) */}
       <div className="flex flex-1 flex-col min-w-0">
+        {/* Slide toolbar */}
+        {selectedSlide && (
+          <div className="flex items-center justify-between border-b px-4 py-1.5 bg-background shrink-0">
+            <span className="text-xs font-medium text-muted-foreground truncate">
+              {selectedSlide.title}
+            </span>
+            <PipSlideViewer
+              slides={slides}
+              currentSlideId={selectedSlide.id}
+              onSlideChange={setSelectedSlideId}
+            />
+          </div>
+        )}
         <div className="flex-1 min-h-0">
           {selectedSlide ? (
             <SlideViewer key={selectedSlide.id} slide={selectedSlide} />

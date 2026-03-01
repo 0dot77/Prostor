@@ -97,6 +97,32 @@ export function getDomain(url: string): string {
 }
 
 /**
+ * Check if an OG image URL is a known useless placeholder/icon.
+ * These are generic site icons rather than actual content images.
+ */
+const USELESS_OG_IMAGE_PATTERNS = [
+  /abs-\d*\.twimg\.com\/emoji/,       // X.com warning emoji SVG
+  /abs\.twimg\.com\/responsive-web/,   // X.com generic assets
+  /\/static\/images\/project-logo/,    // generic project logos
+  /\/favicon/i,                        // favicons used as OG image
+];
+
+export function isUselessOgImage(imageUrl: string | null | undefined): boolean {
+  if (!imageUrl) return true;
+  return USELESS_OG_IMAGE_PATTERNS.some((pattern) => pattern.test(imageUrl));
+}
+
+/**
+ * Get a valid OG image, filtering out known useless ones.
+ * Returns the image URL if valid, null otherwise.
+ */
+export function getValidOgImage(imageUrl: string | null | undefined): string | null {
+  if (!imageUrl) return null;
+  if (isUselessOgImage(imageUrl)) return null;
+  return imageUrl;
+}
+
+/**
  * Generate a color from a string (for unknown sites)
  */
 export function stringToHue(str: string): number {

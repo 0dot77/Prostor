@@ -1,5 +1,73 @@
 import { NextResponse } from "next/server";
 import ogs from "open-graph-scraper";
+import { isUselessOgImage } from "@/lib/brand-utils";
+
+/**
+ * Extract tweet ID from an X.com / Twitter URL.
+ */
+function extractTweetId(url: string): string | null {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace("www.", "");
+    if (host !== "x.com" && host !== "twitter.com") return null;
+
+    // Pattern: /user/status/1234567890
+    const match = u.pathname.match(/\/\w+\/status\/(\d+)/);
+    return match ? match[1] : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch tweet data from Twitter's syndication API.
+ * This works without authentication and returns media thumbnails.
+ */
+async function fetchTweetMetadata(
+  tweetId: string
+): Promise<{
+  ogTitle: string | null;
+  ogDescription: string | null;
+  ogImage: string | null;
+  ogSiteName: string | null;
+} | null> {
+  try {
+    const res = await fetch(
+      `https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&token=x`,
+      {
+        headers: { "User-Agent": "Mozilla/5.0" },
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+
+    // Extract media thumbnail
+    let ogImage: string | null = null;
+    if (data.mediaDetails && data.mediaDetails.length > 0) {
+      ogImage = data.mediaDetails[0].media_url_https ?? null;
+    }
+    // Fallback: check photos in the tweet
+    if (!ogImage && data.photos && data.photos.length > 0) {
+      ogImage = data.photos[0].url ?? null;
+    }
+
+    // Build title from user name
+    const userName = data.user?.name ?? null;
+    const screenName = data.user?.screen_name ?? null;
+
+    return {
+      ogTitle: userName ? `${userName} (@${screenName})` : null,
+      ogDescription: data.text ?? null,
+      ogImage,
+      ogSiteName: "X",
+    };
+  } catch {
+    return null;
+  }
+}
 
 export async function POST(request: Request) {
   try {
@@ -16,10 +84,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid URL" }, { status: 400 });
     }
 
+    // Special handling for X.com / Twitter — use syndication API
+    const tweetId = extractTweetId(url);
+    if (tweetId) {
+      const tweetMeta = await fetchTweetMetadata(tweetId);
+      if (tweetMeta) {
+        return NextResponse.json(tweetMeta);
+      }
+      // If syndication fails, fall through to generic OG scraping
+    }
+
+    // Generic OG scraping for all other sites
     const { result, error } = await ogs({ url, timeout: 10000 });
 
     if (error) {
-      // Return minimal data even if OG scraping fails
       return NextResponse.json({
         ogTitle: null,
         ogDescription: null,
@@ -28,10 +106,11 @@ export async function POST(request: Request) {
       });
     }
 
-    // Extract the first image URL if available
+    // Extract the first image URL, filtering out useless ones
     let ogImage: string | null = null;
     if (result.ogImage && result.ogImage.length > 0) {
-      ogImage = result.ogImage[0].url;
+      const candidate = result.ogImage[0].url;
+      ogImage = isUselessOgImage(candidate) ? null : candidate;
     }
 
     return NextResponse.json({
