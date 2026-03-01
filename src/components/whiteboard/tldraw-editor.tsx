@@ -14,19 +14,7 @@ import {
 import { useSyncDemo } from "@tldraw/sync";
 import "tldraw/tldraw.css";
 
-// Generate a consistent color from a string
-function stringToColor(str: string): string {
-  const colors = [
-    "#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4",
-    "#FFEAA7", "#DDA0DD", "#98D8C8", "#F7DC6F",
-    "#BB8FCE", "#85C1E9", "#F0B27A", "#82E0AA",
-  ];
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return colors[Math.abs(hash) % colors.length];
-}
+import { stringToColor } from "@/lib/whiteboard-utils";
 
 interface NoteLabel {
   id: TLShapeId;
