@@ -1,6 +1,7 @@
 "use client";
 
 import { getBrandInfo, getDomain, stringToHue, getValidOgImage } from "@/lib/brand-utils";
+import { getYouTubeThumbnail } from "@/lib/og-utils";
 
 interface LinkCardBackgroundProps {
   url: string;
@@ -21,7 +22,7 @@ export function LinkCardBackground({
   watermarkSize = "80px",
 }: LinkCardBackgroundProps) {
   const brand = getBrandInfo(url);
-  const validImage = getValidOgImage(ogImage);
+  const validImage = getValidOgImage(ogImage) ?? getYouTubeThumbnail(url);
 
   if (validImage) {
     return (

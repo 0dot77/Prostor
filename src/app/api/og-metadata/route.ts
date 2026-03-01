@@ -4,6 +4,33 @@ import { isUselessOgImage } from "@/lib/brand-utils";
 import { OG_FETCH_TIMEOUT_MS } from "@/lib/constants";
 
 /**
+ * Extract YouTube video ID from various YouTube URL formats.
+ */
+function extractYouTubeId(url: string): string | null {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace("www.", "");
+
+    // youtube.com/watch?v=ID
+    if ((host === "youtube.com" || host === "m.youtube.com") && u.searchParams.has("v")) {
+      return u.searchParams.get("v");
+    }
+    // youtu.be/ID
+    if (host === "youtu.be") {
+      return u.pathname.slice(1).split("/")[0] || null;
+    }
+    // youtube.com/embed/ID or youtube.com/shorts/ID
+    if (host === "youtube.com" || host === "m.youtube.com") {
+      const match = u.pathname.match(/\/(embed|shorts|v)\/([a-zA-Z0-9_-]+)/);
+      return match ? match[2] : null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Extract tweet ID from an X.com / Twitter URL.
  */
 function extractTweetId(url: string): string | null {
@@ -85,6 +112,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid URL" }, { status: 400 });
     }
 
+    // Special handling for YouTube — extract thumbnail directly
+    const youtubeId = extractYouTubeId(url);
+
     // Special handling for X.com / Twitter — use syndication API
     const tweetId = extractTweetId(url);
     if (tweetId) {
@@ -112,6 +142,11 @@ export async function POST(request: Request) {
     if (result.ogImage && result.ogImage.length > 0) {
       const candidate = result.ogImage[0].url;
       ogImage = isUselessOgImage(candidate) ? null : candidate;
+    }
+
+    // YouTube fallback: if OG scraping didn't return an image, use the thumbnail API
+    if (!ogImage && youtubeId) {
+      ogImage = `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`;
     }
 
     return NextResponse.json({

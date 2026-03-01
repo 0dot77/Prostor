@@ -16,6 +16,32 @@ const EMPTY_META: OgMetadata = {
 };
 
 /**
+ * Extract YouTube video ID and return a thumbnail URL.
+ * Works client-side as a fallback when og_image is null in the DB.
+ */
+export function getYouTubeThumbnail(url: string): string | null {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace("www.", "");
+
+    let videoId: string | null = null;
+
+    if ((host === "youtube.com" || host === "m.youtube.com") && u.searchParams.has("v")) {
+      videoId = u.searchParams.get("v");
+    } else if (host === "youtu.be") {
+      videoId = u.pathname.slice(1).split("/")[0] || null;
+    } else if (host === "youtube.com" || host === "m.youtube.com") {
+      const match = u.pathname.match(/\/(embed|shorts|v)\/([a-zA-Z0-9_-]+)/);
+      videoId = match ? match[2] : null;
+    }
+
+    return videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Fetch OG metadata for a URL via the /api/og-metadata endpoint.
  * Returns empty metadata on failure (never throws).
  */
