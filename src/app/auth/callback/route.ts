@@ -3,7 +3,10 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // Emails that should be automatically granted admin role
-const ADMIN_EMAILS = ["yty0706@gmail.com"];
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "yty0706@gmail.com")
+  .split(",")
+  .map((e) => e.trim())
+  .filter(Boolean);
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);

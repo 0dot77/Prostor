@@ -2,10 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { LogOut, Settings, ChevronRight, Shield } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { LogOut, ChevronRight, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useLogout } from "@/hooks/use-logout";
+import { getDisplayName, getInitials } from "@/lib/user-utils";
 import type { User, Course } from "@/lib/types";
 
 interface DashboardClientProps {
@@ -15,20 +16,10 @@ interface DashboardClientProps {
 
 export function DashboardClient({ user, courses }: DashboardClientProps) {
   const router = useRouter();
+  const handleLogout = useLogout();
 
-  const handleLogout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/");
-  };
-
-  const displayName = user.name ?? user.email.split("@")[0];
-  const initials = displayName
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+  const displayName = getDisplayName(user);
+  const initials = getInitials(displayName);
 
   return (
     <div className="flex min-h-screen flex-col justify-between px-8 py-12 md:px-16 lg:px-24">

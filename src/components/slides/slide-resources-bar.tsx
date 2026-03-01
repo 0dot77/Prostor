@@ -13,7 +13,9 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, Trash2, Loader2, Link2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getBrandInfo, getDomain, stringToHue, getValidOgImage } from "@/lib/brand-utils";
+import { LinkCardBackground, BrandBadge } from "@/components/shared/link-card-background";
+import { getBrandInfo, getDomain } from "@/lib/brand-utils";
+import { fetchOgMetadata } from "@/lib/og-utils";
 import type { SlideResource } from "@/lib/types";
 
 interface SlideResourcesBarProps {
@@ -51,16 +53,7 @@ export function SlideResourcesBar({ slideId, isAdmin }: SlideResourcesBarProps) 
     setAdding(true);
 
     try {
-      // Fetch OG metadata
-      const metaRes = await fetch("/api/og-metadata", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: url.trim() }),
-      });
-
-      const meta = metaRes.ok
-        ? await metaRes.json()
-        : { ogTitle: null, ogDescription: null, ogImage: null, ogSiteName: null };
+      const meta = await fetchOgMetadata(url.trim());
 
       const supabase = createClient();
       const {
@@ -71,7 +64,7 @@ export function SlideResourcesBar({ slideId, isAdmin }: SlideResourcesBarProps) 
         .from("slide_resources")
         .insert({
           slide_id: slideId,
-          page_number: 0, // Not used in slide-level resources
+          page_number: 0,
           url: url.trim(),
           og_title: meta.ogTitle,
           og_description: meta.ogDescription,
@@ -171,137 +164,75 @@ export function SlideResourcesBar({ slideId, isAdmin }: SlideResourcesBarProps) 
       {resources.length > 0 && (
         <div className="flex gap-3 overflow-x-auto px-4 pb-3">
           <AnimatePresence mode="popLayout">
-            {resources.map((resource) => (
-              <motion.a
-                key={resource.id}
-                layout
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                href={resource.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group relative w-52 shrink-0 rounded-xl overflow-hidden transition-shadow hover:shadow-lg"
-                style={{ aspectRatio: "16 / 10" }}
-              >
-                {/* Background layer: OG image > brand color > hue fallback */}
-                {(() => {
-                  const brand = getBrandInfo(resource.url);
-                  const validImage = getValidOgImage(resource.og_image);
-                  const hasImage = !!validImage;
+            {resources.map((resource) => {
+              const brand = getBrandInfo(resource.url);
+              const domain = getDomain(resource.url);
+              const displayName = resource.og_title || brand?.name || domain;
 
-                  if (hasImage) {
-                    return (
-                      <div className="absolute inset-0">
-                        <img
-                          src={validImage!}
-                          alt=""
-                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        />
-                      </div>
-                    );
-                  }
-                  if (brand) {
-                    return (
-                      <div
-                        className="absolute inset-0 flex items-center justify-center"
-                        style={{ backgroundColor: brand.color }}
-                      >
-                        <span
-                          className="text-[56px] font-black opacity-10 select-none"
-                          style={{ color: brand.textColor }}
-                        >
-                          {brand.icon}
-                        </span>
-                      </div>
-                    );
-                  }
-                  const hue = stringToHue(getDomain(resource.url));
-                  return (
-                    <div
-                      className="absolute inset-0 flex items-center justify-center"
-                      style={{ backgroundColor: `hsl(${hue}, 30%, 25%)` }}
-                    >
-                      <span
-                        className="text-[56px] font-black opacity-10 select-none"
-                        style={{ color: `hsl(${hue}, 40%, 70%)` }}
-                      >
-                        {getDomain(resource.url).charAt(0).toUpperCase()}
+              return (
+                <motion.a
+                  key={resource.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  href={resource.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group relative w-52 shrink-0 rounded-xl overflow-hidden transition-shadow hover:shadow-lg"
+                  style={{ aspectRatio: "16 / 10" }}
+                >
+                  {/* Background */}
+                  <LinkCardBackground
+                    url={resource.url}
+                    ogImage={resource.og_image}
+                    watermarkSize="56px"
+                  />
+
+                  {/* Gradient overlay */}
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      background:
+                        "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.05) 100%)",
+                    }}
+                  />
+
+                  {/* Content at bottom */}
+                  <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1 p-2.5">
+                    <div className="flex items-center gap-1.5">
+                      <BrandBadge url={resource.url} size={20} />
+                      <span className="text-[11px] font-semibold text-white truncate">
+                        {brand?.name || domain}
                       </span>
                     </div>
-                  );
-                })()}
+                    <p className="text-[10px] text-white/70 truncate leading-tight">
+                      {displayName}
+                    </p>
+                  </div>
 
-                {/* Gradient overlay */}
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    background:
-                      "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.05) 100%)",
-                  }}
-                />
-
-                {/* Content at bottom */}
-                {(() => {
-                  const brand = getBrandInfo(resource.url);
-                  const domain = getDomain(resource.url);
-                  const displayName = resource.og_title || brand?.name || domain;
-                  return (
-                    <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1 p-2.5">
-                      {/* Brand icon + name row */}
-                      <div className="flex items-center gap-1.5">
-                        {brand ? (
-                          <span
-                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold"
-                            style={{ backgroundColor: brand.color, color: brand.textColor }}
-                          >
-                            {brand.icon}
-                          </span>
-                        ) : (
-                          (() => {
-                            const hue = stringToHue(domain);
-                            return (
-                              <span
-                                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold"
-                                style={{ backgroundColor: `hsl(${hue}, 35%, 40%)`, color: "#fff" }}
-                              >
-                                {domain.charAt(0).toUpperCase()}
-                              </span>
-                            );
-                          })()
-                        )}
-                        <span className="text-[11px] font-semibold text-white truncate">
-                          {brand?.name || domain}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-white/70 truncate leading-tight">
-                        {displayName}
-                      </p>
-                    </div>
-                  );
-                })()}
-
-                {/* Delete button (admin) */}
-                {isAdmin && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-1 top-1 h-5 w-5 rounded-full bg-black/40 text-white opacity-0 group-hover:opacity-100 hover:bg-black/60 backdrop-blur-sm"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleDelete(resource.id);
-                    }}
-                  >
-                    {deleting === resource.id ? (
-                      <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-2.5 w-2.5" />
-                    )}
-                  </Button>
-                )}
-              </motion.a>
-            ))}
+                  {/* Delete button (admin) */}
+                  {isAdmin && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1 h-5 w-5 rounded-full bg-black/40 text-white opacity-0 group-hover:opacity-100 hover:bg-black/60 backdrop-blur-sm"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleDelete(resource.id);
+                      }}
+                    >
+                      {deleting === resource.id ? (
+                        <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-2.5 w-2.5" />
+                      )}
+                    </Button>
+                  )}
+                </motion.a>
+              );
+            })}
           </AnimatePresence>
         </div>
       )}

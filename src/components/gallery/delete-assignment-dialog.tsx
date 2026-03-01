@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import { extractStoragePath, STORAGE_BUCKETS } from "@/lib/constants";
 import type { AssignmentWithUser } from "@/lib/types";
 
 interface DeleteAssignmentDialogProps {
@@ -33,21 +34,21 @@ export function DeleteAssignmentDialog({
     try {
       const supabase = createClient();
 
-      // Extract storage paths from URLs
-      const extractPath = (url: string) => {
-        const match = url.match(/\/storage\/v1\/object\/public\/assignments\/(.*)/);
-        return match?.[1] ?? null;
-      };
-
-      const mainPath = extractPath(assignment.image_url);
-      const thumbPath = extractPath(assignment.thumbnail_url);
-
-      // Delete storage files
+      // Delete storage files via server API
+      const mainPath = extractStoragePath(assignment.image_url, STORAGE_BUCKETS.ASSIGNMENTS);
+      const thumbPath = extractStoragePath(assignment.thumbnail_url, STORAGE_BUCKETS.ASSIGNMENTS);
       const pathsToDelete = [mainPath, thumbPath].filter(
         (p): p is string => p !== null
       );
       if (pathsToDelete.length > 0) {
-        await supabase.storage.from("assignments").remove(pathsToDelete);
+        await fetch("/api/delete-storage", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bucket: STORAGE_BUCKETS.ASSIGNMENTS,
+            paths: pathsToDelete,
+          }),
+        });
       }
 
       // Delete assignment record

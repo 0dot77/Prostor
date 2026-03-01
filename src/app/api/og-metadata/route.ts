@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import ogs from "open-graph-scraper";
 import { isUselessOgImage } from "@/lib/brand-utils";
+import { OG_FETCH_TIMEOUT_MS } from "@/lib/constants";
 
 /**
  * Extract tweet ID from an X.com / Twitter URL.
@@ -36,7 +37,7 @@ async function fetchTweetMetadata(
       `https://cdn.syndication.twimg.com/tweet-result?id=${tweetId}&token=x`,
       {
         headers: { "User-Agent": "Mozilla/5.0" },
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(OG_FETCH_TIMEOUT_MS),
       }
     );
 
@@ -95,7 +96,7 @@ export async function POST(request: Request) {
     }
 
     // Generic OG scraping for all other sites
-    const { result, error } = await ogs({ url, timeout: 10000 });
+    const { result, error } = await ogs({ url, timeout: OG_FETCH_TIMEOUT_MS });
 
     if (error) {
       return NextResponse.json({

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import sharp from "sharp";
+import { IMAGE_CONFIG, STORAGE_BUCKETS } from "@/lib/constants";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -27,16 +28,22 @@ export async function POST(request: Request) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Process with sharp: main image (WebP, max 1920px, quality 80%)
+    // Process with sharp: main image (WebP)
     const mainImage = await sharp(buffer)
-      .resize(1920, 1920, { fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 80 })
+      .resize(IMAGE_CONFIG.MAIN_MAX_DIMENSION, IMAGE_CONFIG.MAIN_MAX_DIMENSION, {
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .webp({ quality: IMAGE_CONFIG.MAIN_QUALITY })
       .toBuffer();
 
-    // Process with sharp: thumbnail (WebP, 400px, quality 70%)
+    // Process with sharp: thumbnail (WebP)
     const thumbnail = await sharp(buffer)
-      .resize(400, 400, { fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 70 })
+      .resize(IMAGE_CONFIG.THUMB_MAX_DIMENSION, IMAGE_CONFIG.THUMB_MAX_DIMENSION, {
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .webp({ quality: IMAGE_CONFIG.THUMB_QUALITY })
       .toBuffer();
 
     // Generate unique filenames
@@ -50,7 +57,7 @@ export async function POST(request: Request) {
 
     // Upload to Supabase Storage
     const { error: mainError } = await adminSupabase.storage
-      .from("assignments")
+      .from(STORAGE_BUCKETS.ASSIGNMENTS)
       .upload(mainPath, mainImage, {
         contentType: "image/webp",
         upsert: false,
@@ -65,7 +72,7 @@ export async function POST(request: Request) {
     }
 
     const { error: thumbError } = await adminSupabase.storage
-      .from("assignments")
+      .from(STORAGE_BUCKETS.ASSIGNMENTS)
       .upload(thumbPath, thumbnail, {
         contentType: "image/webp",
         upsert: false,
@@ -82,11 +89,11 @@ export async function POST(request: Request) {
     // Get public URLs
     const {
       data: { publicUrl: imageUrl },
-    } = adminSupabase.storage.from("assignments").getPublicUrl(mainPath);
+    } = adminSupabase.storage.from(STORAGE_BUCKETS.ASSIGNMENTS).getPublicUrl(mainPath);
 
     const {
       data: { publicUrl: thumbnailUrl },
-    } = adminSupabase.storage.from("assignments").getPublicUrl(thumbPath);
+    } = adminSupabase.storage.from(STORAGE_BUCKETS.ASSIGNMENTS).getPublicUrl(thumbPath);
 
     return NextResponse.json({ imageUrl, thumbnailUrl });
   } catch (error) {

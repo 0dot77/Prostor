@@ -62,8 +62,7 @@ vi.mock("framer-motion", async () => {
                 cleanProps[key] = val;
               }
             }
-            const Element = prop as keyof JSX.IntrinsicElements;
-            // @ts-expect-error — dynamic element creation
+            const Element = prop as keyof React.JSX.IntrinsicElements;
             return <Element {...cleanProps}>{children}</Element>;
           };
         }

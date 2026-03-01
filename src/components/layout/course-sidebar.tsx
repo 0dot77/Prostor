@@ -16,6 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { getDisplayName, getInitials } from "@/lib/user-utils";
 import type { User, Course } from "@/lib/types";
 
 const courseLinks = [
@@ -34,13 +35,8 @@ export function CourseSidebar({ course, user }: CourseSidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
-  const displayName = user.name ?? user.email.split("@")[0];
-  const initials = displayName
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+  const displayName = getDisplayName(user);
+  const initials = getInitials(displayName);
 
   return (
     <aside

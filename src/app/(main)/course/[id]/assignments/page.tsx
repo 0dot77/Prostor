@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthenticatedUser } from "@/lib/auth";
 import { AssignmentsClient } from "./assignments-client";
 import type { Week, AssignmentWithUser } from "@/lib/types";
 
@@ -9,22 +9,9 @@ interface PageProps {
 
 export default async function AssignmentsPage({ params }: PageProps) {
   const { id: courseId } = await params;
+  const { id: userId, isAdmin } = await getAuthenticatedUser();
+
   const supabase = await createClient();
-
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
-  if (!authUser) redirect("/login");
-
-  // Get user profile
-  const { data: profile } = await supabase
-    .from("users")
-    .select("id, role")
-    .eq("id", authUser.id)
-    .single();
-
-  const isAdmin = profile?.role === "admin";
 
   // Get weeks for this course
   const { data: weeks } = await supabase
@@ -53,7 +40,7 @@ export default async function AssignmentsPage({ params }: PageProps) {
       courseId={courseId}
       weeks={(weeks as Week[]) ?? []}
       assignments={assignments}
-      currentUserId={authUser.id}
+      currentUserId={userId}
       isAdmin={isAdmin}
     />
   );

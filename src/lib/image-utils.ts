@@ -1,4 +1,5 @@
 import imageCompression from "browser-image-compression";
+import { IMAGE_CONFIG } from "@/lib/constants";
 
 /**
  * Client-side image compression before upload
@@ -6,8 +7,8 @@ import imageCompression from "browser-image-compression";
  */
 export async function compressImage(file: File): Promise<File> {
   const options = {
-    maxSizeMB: 2,
-    maxWidthOrHeight: 1920,
+    maxSizeMB: IMAGE_CONFIG.CLIENT_MAX_SIZE_MB,
+    maxWidthOrHeight: IMAGE_CONFIG.MAIN_MAX_DIMENSION,
     useWebWorker: true,
     fileType: "image/webp" as const,
   };

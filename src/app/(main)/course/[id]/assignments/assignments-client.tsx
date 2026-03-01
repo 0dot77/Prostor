@@ -4,8 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { UploadDialog } from "@/components/gallery/upload-dialog";
 import { MasonryGrid } from "@/components/gallery/masonry-grid";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { WeekFilterTabs } from "@/components/shared/week-filter-tabs";
 import type { Week, AssignmentWithUser } from "@/lib/types";
 
 interface AssignmentsClientProps {
@@ -25,12 +24,10 @@ export function AssignmentsClient({
 }: AssignmentsClientProps) {
   const [selectedWeekId, setSelectedWeekId] = useState<string | null>(null);
 
-  // Filter assignments by selected week
   const filteredAssignments = selectedWeekId
     ? assignments.filter((a) => a.week_id === selectedWeekId)
     : assignments;
 
-  // Count assignments per week
   const countByWeek = (weekId: string) =>
     assignments.filter((a) => a.week_id === weekId).length;
 
@@ -59,57 +56,14 @@ export function AssignmentsClient({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="flex gap-2 overflow-x-auto border-b px-6 py-3"
         >
-          <button
-            onClick={() => setSelectedWeekId(null)}
-            className={cn(
-              "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors whitespace-nowrap",
-              selectedWeekId === null
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-accent"
-            )}
-          >
-            전체
-            <Badge
-              variant="secondary"
-              className={cn(
-                "h-5 min-w-5 justify-center px-1.5 text-[10px]",
-                selectedWeekId === null && "bg-primary-foreground/20 text-primary-foreground"
-              )}
-            >
-              {assignments.length}
-            </Badge>
-          </button>
-          {weeks.map((week) => {
-            const count = countByWeek(week.id);
-            return (
-              <button
-                key={week.id}
-                onClick={() => setSelectedWeekId(week.id)}
-                className={cn(
-                  "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors whitespace-nowrap",
-                  selectedWeekId === week.id
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-accent"
-                )}
-              >
-                {week.week_number}주차
-                {count > 0 && (
-                  <Badge
-                    variant="secondary"
-                    className={cn(
-                      "h-5 min-w-5 justify-center px-1.5 text-[10px]",
-                      selectedWeekId === week.id &&
-                        "bg-primary-foreground/20 text-primary-foreground"
-                    )}
-                  >
-                    {count}
-                  </Badge>
-                )}
-              </button>
-            );
-          })}
+          <WeekFilterTabs
+            weeks={weeks}
+            selectedWeekId={selectedWeekId}
+            onSelect={setSelectedWeekId}
+            totalCount={assignments.length}
+            countByWeek={countByWeek}
+          />
         </motion.div>
       )}
 

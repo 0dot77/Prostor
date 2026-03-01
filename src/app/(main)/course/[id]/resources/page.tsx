@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthenticatedUser } from "@/lib/auth";
 import { ResourcesClient } from "./resources-client";
 import type { Week, Resource } from "@/lib/types";
 
@@ -9,21 +9,9 @@ interface PageProps {
 
 export default async function ResourcesPage({ params }: PageProps) {
   const { id: courseId } = await params;
+  const { isAdmin } = await getAuthenticatedUser();
+
   const supabase = await createClient();
-
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
-  if (!authUser) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("users")
-    .select("id, role")
-    .eq("id", authUser.id)
-    .single();
-
-  const isAdmin = profile?.role === "admin";
 
   // Get weeks
   const { data: weeks } = await supabase

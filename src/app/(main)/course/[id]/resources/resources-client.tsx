@@ -6,8 +6,7 @@ import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { AddLinkDialog } from "@/components/resources/add-link-dialog";
 import { LinkCard } from "@/components/resources/link-card";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { WeekFilterTabs } from "@/components/shared/week-filter-tabs";
 import { LinkIcon } from "lucide-react";
 import type { Week, Resource } from "@/lib/types";
 
@@ -36,12 +35,10 @@ export function ResourcesClient({
         ? resources.filter((r) => !r.week_id)
         : resources.filter((r) => r.week_id === selectedWeekId);
 
-  const countByWeek = (weekId: string | null) =>
-    weekId === null
-      ? resources.length
-      : weekId === "none"
-        ? resources.filter((r) => !r.week_id).length
-        : resources.filter((r) => r.week_id === weekId).length;
+  const countByWeek = (weekId: string) =>
+    resources.filter((r) => r.week_id === weekId).length;
+
+  const unassignedCount = resources.filter((r) => !r.week_id).length;
 
   const handleDelete = async (resourceId: string) => {
     setDeleting(resourceId);
@@ -83,84 +80,19 @@ export function ResourcesClient({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.1 }}
-        className="flex gap-2 overflow-x-auto border-b px-6 py-3"
       >
-        <button
-          onClick={() => setSelectedWeekId(null)}
-          className={cn(
-            "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors whitespace-nowrap",
-            selectedWeekId === null
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground hover:bg-accent"
-          )}
-        >
-          전체
-          <Badge
-            variant="secondary"
-            className={cn(
-              "h-5 min-w-5 justify-center px-1.5 text-[10px]",
-              selectedWeekId === null &&
-                "bg-primary-foreground/20 text-primary-foreground"
-            )}
-          >
-            {countByWeek(null)}
-          </Badge>
-        </button>
-
-        {/* Unassigned */}
-        {countByWeek("none") > 0 && (
-          <button
-            onClick={() => setSelectedWeekId("none")}
-            className={cn(
-              "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors whitespace-nowrap",
-              selectedWeekId === "none"
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-accent"
-            )}
-          >
-            일반
-            <Badge
-              variant="secondary"
-              className={cn(
-                "h-5 min-w-5 justify-center px-1.5 text-[10px]",
-                selectedWeekId === "none" &&
-                  "bg-primary-foreground/20 text-primary-foreground"
-              )}
-            >
-              {countByWeek("none")}
-            </Badge>
-          </button>
-        )}
-
-        {weeks.map((week) => {
-          const count = countByWeek(week.id);
-          return (
-            <button
-              key={week.id}
-              onClick={() => setSelectedWeekId(week.id)}
-              className={cn(
-                "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors whitespace-nowrap",
-                selectedWeekId === week.id
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-accent"
-              )}
-            >
-              {week.week_number}주차
-              {count > 0 && (
-                <Badge
-                  variant="secondary"
-                  className={cn(
-                    "h-5 min-w-5 justify-center px-1.5 text-[10px]",
-                    selectedWeekId === week.id &&
-                      "bg-primary-foreground/20 text-primary-foreground"
-                  )}
-                >
-                  {count}
-                </Badge>
-              )}
-            </button>
-          );
-        })}
+        <WeekFilterTabs
+          weeks={weeks}
+          selectedWeekId={selectedWeekId}
+          onSelect={setSelectedWeekId}
+          totalCount={resources.length}
+          countByWeek={countByWeek}
+          extraTabs={
+            unassignedCount > 0
+              ? [{ id: "none", label: "일반", count: unassignedCount }]
+              : []
+          }
+        />
       </motion.div>
 
       {/* Resources Grid */}

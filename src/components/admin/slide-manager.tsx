@@ -15,51 +15,14 @@ import {
 } from "@/components/ui/dialog";
 import { FileText, Plus, Trash2, Loader2, Link2, Upload, Eye } from "lucide-react";
 import { SlidePreviewPanel } from "./slide-preview-panel";
+import { extractStoragePath, STORAGE_BUCKETS } from "@/lib/constants";
+import { detectSourceType, toEmbedUrl, sourceLabel } from "@/lib/slide-utils";
 import type { Week, Slide, SlideSourceType } from "@/lib/types";
 
 interface SlideManagerProps {
   courseId: string;
   weeks: Week[];
   slides: Slide[];
-}
-
-/**
- * Detect the source type from a URL:
- * - Google Slides presentation URL
- * - Google Drive PDF file URL
- * - Any other URL treated as direct PDF URL
- */
-function detectSourceType(url: string): SlideSourceType {
-  if (
-    url.includes("docs.google.com/presentation") ||
-    url.includes("slides.google.com")
-  ) {
-    return "google_slides";
-  }
-  if (url.includes("drive.google.com")) {
-    return "google_drive_pdf";
-  }
-  return "pdf_url";
-}
-
-/**
- * Convert various Google URLs to embeddable format
- */
-function toEmbedUrl(url: string, sourceType: SlideSourceType): string {
-  if (sourceType === "google_slides") {
-    // Convert /edit or /pub to /embed
-    return url
-      .replace(/\/edit.*$/, "/embed")
-      .replace(/\/pub.*$/, "/embed");
-  }
-  if (sourceType === "google_drive_pdf") {
-    // Extract file ID from various Drive URL formats
-    const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
-    if (match) {
-      return `https://drive.google.com/file/d/${match[1]}/preview`;
-    }
-  }
-  return url;
 }
 
 export function SlideManager({ courseId, weeks, slides: initialSlides }: SlideManagerProps) {
@@ -153,15 +116,18 @@ export function SlideManager({ courseId, weeks, slides: initialSlides }: SlideMa
       const supabase = createClient();
       const slide = slides.find((s) => s.id === slideId);
 
-      // Delete storage file if it was uploaded
+      // Delete storage file if it was uploaded (via server API)
       if (slide?.source_type === "pdf_upload" && slide.file_url) {
-        const match = slide.file_url.match(
-          /\/storage\/v1\/object\/public\/slides\/(.*)/
-        );
-        if (match?.[1]) {
-          const { createAdminClient } = await import("@/lib/supabase/admin");
-          const adminSupabase = createAdminClient();
-          await adminSupabase.storage.from("slides").remove([match[1]]);
+        const storagePath = extractStoragePath(slide.file_url, STORAGE_BUCKETS.SLIDES);
+        if (storagePath) {
+          await fetch("/api/delete-storage", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              bucket: STORAGE_BUCKETS.SLIDES,
+              paths: [storagePath],
+            }),
+          });
         }
       }
 
@@ -184,16 +150,6 @@ export function SlideManager({ courseId, weeks, slides: initialSlides }: SlideMa
     week,
     slides: slides.filter((s) => s.week_id === week.id),
   }));
-
-  const sourceLabel = (type: SlideSourceType | null) => {
-    switch (type) {
-      case "google_slides": return "Google Slides";
-      case "google_drive_pdf": return "Drive PDF";
-      case "pdf_url": return "PDF 링크";
-      case "pdf_upload": return "업로드";
-      default: return "";
-    }
-  };
 
   return (
     <div>

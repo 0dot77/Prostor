@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { STORAGE_BUCKETS } from "@/lib/constants";
 
 /**
  * Creates a signed upload URL for the client to upload PDF directly to Storage.
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     // Create signed upload URL (valid for 120 seconds)
     const { data: signedData, error: signError } = await adminSupabase.storage
-      .from("slides")
+      .from(STORAGE_BUCKETS.SLIDES)
       .createSignedUploadUrl(storagePath);
 
     if (signError || !signedData) {
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
     // Also get the public URL for after upload
     const {
       data: { publicUrl },
-    } = adminSupabase.storage.from("slides").getPublicUrl(storagePath);
+    } = adminSupabase.storage.from(STORAGE_BUCKETS.SLIDES).getPublicUrl(storagePath);
 
     return NextResponse.json({
       signedUrl: signedData.signedUrl,

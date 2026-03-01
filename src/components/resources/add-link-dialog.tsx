@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Loader2 } from "lucide-react";
+import { fetchOgMetadata } from "@/lib/og-utils";
 import type { Week } from "@/lib/types";
 
 interface AddLinkDialogProps {
@@ -33,16 +34,7 @@ export function AddLinkDialog({ courseId, weeks }: AddLinkDialogProps) {
     setAdding(true);
 
     try {
-      // Fetch OG metadata
-      const metaRes = await fetch("/api/og-metadata", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: url.trim() }),
-      });
-
-      const meta = metaRes.ok
-        ? await metaRes.json()
-        : { ogTitle: null, ogDescription: null, ogImage: null, ogSiteName: null };
+      const meta = await fetchOgMetadata(url.trim());
 
       const supabase = createClient();
       const {

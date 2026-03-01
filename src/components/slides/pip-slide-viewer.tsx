@@ -1,22 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { PictureInPicture2, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { PictureInPicture2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { Slide, SlideSourceType } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { PIP_WINDOW } from "@/lib/constants";
+import { getIframeSrc } from "@/lib/slide-utils";
+import type { Slide } from "@/lib/types";
 
 interface PipSlideViewerProps {
   slides: Slide[];
   currentSlideId: string;
   onSlideChange: (slideId: string) => void;
-}
-
-function getIframeSrc(slide: Slide): string {
-  const sourceType = slide.source_type as SlideSourceType | null;
-  if (sourceType === "google_slides" || sourceType === "google_drive_pdf") {
-    return slide.file_url;
-  }
-  return `https://docs.google.com/viewer?url=${encodeURIComponent(slide.file_url)}&embedded=true`;
 }
 
 /**
@@ -99,8 +94,8 @@ export function PipSlideViewer({
     try {
       // @ts-expect-error — Document PiP API not yet in TS types
       const pipWindow = await window.documentPictureInPicture.requestWindow({
-        width: 800,
-        height: 520,
+        width: PIP_WINDOW.WIDTH,
+        height: PIP_WINDOW.HEIGHT,
       });
 
       pipWindowRef.current = pipWindow;
@@ -307,8 +302,4 @@ export function PipSlideViewer({
       {isPip ? "PiP 닫기" : "PiP"}
     </Button>
   );
-}
-
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(" ");
 }

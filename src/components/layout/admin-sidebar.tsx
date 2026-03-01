@@ -1,16 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   BookOpen,
-  LayoutDashboard,
   ArrowLeft,
   LogOut,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { useLogout } from "@/hooks/use-logout";
 import { cn } from "@/lib/utils";
 
 const adminLinks = [
@@ -23,13 +22,7 @@ const adminLinks = [
 
 export function AdminSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
-
-  const handleLogout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/");
-  };
+  const handleLogout = useLogout();
 
   return (
     <aside className="flex h-screen w-60 flex-col border-r bg-background">
