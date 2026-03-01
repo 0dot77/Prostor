@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import sharp from "sharp";
 
 export async function POST(request: Request) {
@@ -41,11 +42,14 @@ export async function POST(request: Request) {
     // Generate unique filenames
     const timestamp = Date.now();
     const randomId = Math.random().toString(36).slice(2, 8);
-    const mainPath = `assignments/${user.id}/${timestamp}-${randomId}.webp`;
-    const thumbPath = `assignments/${user.id}/${timestamp}-${randomId}-thumb.webp`;
+    const mainPath = `${user.id}/${timestamp}-${randomId}.webp`;
+    const thumbPath = `${user.id}/${timestamp}-${randomId}-thumb.webp`;
+
+    // Use admin client to bypass Storage RLS
+    const adminSupabase = createAdminClient();
 
     // Upload to Supabase Storage
-    const { error: mainError } = await supabase.storage
+    const { error: mainError } = await adminSupabase.storage
       .from("assignments")
       .upload(mainPath, mainImage, {
         contentType: "image/webp",
@@ -53,13 +57,14 @@ export async function POST(request: Request) {
       });
 
     if (mainError) {
+      console.error("Main image upload error:", mainError);
       return NextResponse.json(
-        { error: "Failed to upload main image" },
+        { error: `Failed to upload main image: ${mainError.message}` },
         { status: 500 }
       );
     }
 
-    const { error: thumbError } = await supabase.storage
+    const { error: thumbError } = await adminSupabase.storage
       .from("assignments")
       .upload(thumbPath, thumbnail, {
         contentType: "image/webp",
@@ -67,8 +72,9 @@ export async function POST(request: Request) {
       });
 
     if (thumbError) {
+      console.error("Thumbnail upload error:", thumbError);
       return NextResponse.json(
-        { error: "Failed to upload thumbnail" },
+        { error: `Failed to upload thumbnail: ${thumbError.message}` },
         { status: 500 }
       );
     }
@@ -76,11 +82,11 @@ export async function POST(request: Request) {
     // Get public URLs
     const {
       data: { publicUrl: imageUrl },
-    } = supabase.storage.from("assignments").getPublicUrl(mainPath);
+    } = adminSupabase.storage.from("assignments").getPublicUrl(mainPath);
 
     const {
       data: { publicUrl: thumbnailUrl },
-    } = supabase.storage.from("assignments").getPublicUrl(thumbPath);
+    } = adminSupabase.storage.from("assignments").getPublicUrl(thumbPath);
 
     return NextResponse.json({ imageUrl, thumbnailUrl });
   } catch (error) {

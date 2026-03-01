@@ -45,8 +45,11 @@ export function SlideManager({ courseId, weeks, slides }: SlideManagerProps) {
         body: formData,
       });
 
-      if (!uploadRes.ok) throw new Error("Upload failed");
-      const { fileUrl } = await uploadRes.json();
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok) {
+        throw new Error(uploadData.error || "Upload failed");
+      }
+      const { fileUrl } = uploadData;
 
       // Create slide record
       const supabase = createClient();

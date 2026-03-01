@@ -19,12 +19,15 @@ const TldrawEditor = dynamic(
 
 interface WhiteboardClientProps {
   roomId: string;
+  userId: string;
+  userName: string;
+  userAvatar?: string;
 }
 
-export function WhiteboardClient({ roomId }: WhiteboardClientProps) {
+export function WhiteboardClient({ roomId, userId, userName, userAvatar }: WhiteboardClientProps) {
   return (
     <div className="h-full w-full">
-      <TldrawEditor roomId={roomId} />
+      <TldrawEditor roomId={roomId} userId={userId} userName={userName} userAvatar={userAvatar} />
     </div>
   );
 }

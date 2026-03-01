@@ -49,10 +49,15 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && request.nextUrl.pathname === "/login") {
-    // Redirect to dashboard if already authenticated
+  if (user && (request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/")) {
+    const { data: profile } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = profile?.role === "admin" ? "/admin/courses" : "/dashboard";
     return NextResponse.redirect(url);
   }
 

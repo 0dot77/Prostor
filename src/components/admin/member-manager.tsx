@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,11 @@ export function MemberManager({
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Sync local state when server data changes
+  useEffect(() => {
+    setMembers(initialMembers);
+  }, [initialMembers]);
 
   const handleAddMember = async () => {
     if (!email.trim()) return;

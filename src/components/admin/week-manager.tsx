@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,11 @@ export function WeekManager({ courseId, weeks: initialWeeks }: WeekManagerProps)
   const [weeks, setWeeks] = useState<Week[]>(initialWeeks);
   const [newTitle, setNewTitle] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Sync local state when server data changes (after router.refresh())
+  useEffect(() => {
+    setWeeks(initialWeeks);
+  }, [initialWeeks]);
 
   const handleAddWeek = async () => {
     if (!newTitle.trim()) return;

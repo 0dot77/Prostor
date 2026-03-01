@@ -16,6 +16,13 @@ export default async function WhiteboardPage({ params }: PageProps) {
 
   if (!authUser) redirect("/login");
 
+  // Get user profile
+  const { data: profile } = await supabase
+    .from("users")
+    .select("name, avatar_url")
+    .eq("id", authUser.id)
+    .single();
+
   // Get whiteboard for this course
   const { data: whiteboard } = await supabase
     .from("whiteboards")
@@ -33,5 +40,14 @@ export default async function WhiteboardPage({ params }: PageProps) {
     );
   }
 
-  return <WhiteboardClient roomId={whiteboard.room_id} />;
+  const userName = profile?.name ?? authUser.email?.split("@")[0] ?? "익명";
+
+  return (
+    <WhiteboardClient
+      roomId={whiteboard.room_id}
+      userId={authUser.id}
+      userName={userName}
+      userAvatar={profile?.avatar_url ?? undefined}
+    />
+  );
 }

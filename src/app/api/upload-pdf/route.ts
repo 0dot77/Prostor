@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -45,9 +46,12 @@ export async function POST(request: Request) {
     const timestamp = Date.now();
     const randomId = Math.random().toString(36).slice(2, 8);
     const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-    const storagePath = `slides/${user.id}/${timestamp}-${randomId}-${safeName}`;
+    const storagePath = `${user.id}/${timestamp}-${randomId}-${safeName}`;
 
-    const { error: uploadError } = await supabase.storage
+    // Use admin client to bypass Storage RLS
+    const adminSupabase = createAdminClient();
+
+    const { error: uploadError } = await adminSupabase.storage
       .from("slides")
       .upload(storagePath, buffer, {
         contentType: "application/pdf",
@@ -57,14 +61,14 @@ export async function POST(request: Request) {
     if (uploadError) {
       console.error("Storage upload error:", uploadError);
       return NextResponse.json(
-        { error: "Failed to upload PDF" },
+        { error: `Failed to upload PDF: ${uploadError.message}` },
         { status: 500 }
       );
     }
 
     const {
       data: { publicUrl },
-    } = supabase.storage.from("slides").getPublicUrl(storagePath);
+    } = adminSupabase.storage.from("slides").getPublicUrl(storagePath);
 
     return NextResponse.json({ fileUrl: publicUrl, storagePath });
   } catch (error) {
