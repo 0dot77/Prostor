@@ -4,10 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import { CourseForm } from "@/components/admin/course-form";
 import { WeekManager } from "@/components/admin/week-manager";
 import { MemberManager } from "@/components/admin/member-manager";
+import { SlideManager } from "@/components/admin/slide-manager";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Trash2 } from "lucide-react";
-import type { Course, Week, CourseMemberWithUser } from "@/lib/types";
+import type { Course, Week, CourseMemberWithUser, Slide } from "@/lib/types";
 import { DeleteCourseButton } from "./delete-course-button";
 
 interface PageProps {
@@ -43,6 +44,18 @@ export default async function AdminCourseDetailPage({ params }: PageProps) {
     .eq("course_id", id)
     .order("enrolled_at");
 
+  // Get slides through weeks
+  const weekIds = (weeks ?? []).map((w: { id: string }) => w.id);
+  let slides: Slide[] = [];
+  if (weekIds.length > 0) {
+    const { data: slidesData } = await supabase
+      .from("slides")
+      .select("*")
+      .in("week_id", weekIds)
+      .order("created_at");
+    slides = (slidesData as Slide[]) ?? [];
+  }
+
   return (
     <div className="p-8">
       <div className="mb-6 flex items-center gap-4">
@@ -72,6 +85,17 @@ export default async function AdminCourseDetailPage({ params }: PageProps) {
           <WeekManager
             courseId={id}
             weeks={(weeks as Week[]) ?? []}
+          />
+        </section>
+
+        <Separator />
+
+        {/* Slides */}
+        <section>
+          <SlideManager
+            courseId={id}
+            weeks={(weeks as Week[]) ?? []}
+            slides={slides}
           />
         </section>
 
