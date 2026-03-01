@@ -1,8 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export async function POST(request: Request) {
+/**
+ * Creates a signed upload URL for the client to upload PDF directly to Storage.
+ * This avoids the Next.js body parser size limitation.
+ */
+export async function POST(request: NextRequest) {
   const supabase = await createClient();
 
   const {
@@ -25,56 +29,51 @@ export async function POST(request: Request) {
   }
 
   try {
-    const formData = await request.formData();
-    const file = formData.get("file") as File;
+    const { fileName } = await request.json();
 
-    if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
-    }
-
-    if (file.type !== "application/pdf") {
+    if (!fileName) {
       return NextResponse.json(
-        { error: "Only PDF files are allowed" },
+        { error: "fileName is required" },
         { status: 400 }
       );
     }
 
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    // Generate unique filename
     const timestamp = Date.now();
     const randomId = Math.random().toString(36).slice(2, 8);
-    const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+    const safeName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
     const storagePath = `${user.id}/${timestamp}-${randomId}-${safeName}`;
 
-    // Use admin client to bypass Storage RLS
     const adminSupabase = createAdminClient();
 
-    const { error: uploadError } = await adminSupabase.storage
+    // Create signed upload URL (valid for 120 seconds)
+    const { data: signedData, error: signError } = await adminSupabase.storage
       .from("slides")
-      .upload(storagePath, buffer, {
-        contentType: "application/pdf",
-        upsert: false,
-      });
+      .createSignedUploadUrl(storagePath);
 
-    if (uploadError) {
-      console.error("Storage upload error:", uploadError);
+    if (signError || !signedData) {
+      console.error("Signed URL error:", signError);
       return NextResponse.json(
-        { error: `Failed to upload PDF: ${uploadError.message}` },
+        { error: `Failed to create upload URL: ${signError?.message}` },
         { status: 500 }
       );
     }
 
+    // Also get the public URL for after upload
     const {
       data: { publicUrl },
     } = adminSupabase.storage.from("slides").getPublicUrl(storagePath);
 
-    return NextResponse.json({ fileUrl: publicUrl, storagePath });
+    return NextResponse.json({
+      signedUrl: signedData.signedUrl,
+      token: signedData.token,
+      path: signedData.path,
+      publicUrl,
+    });
   } catch (error) {
-    console.error("PDF upload error:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("Upload URL error:", message, error);
     return NextResponse.json(
-      { error: "Failed to process PDF" },
+      { error: `Failed to create upload URL: ${message}` },
       { status: 500 }
     );
   }

@@ -61,11 +61,14 @@ export interface AssignmentWithUser extends Assignment {
   users: Pick<User, "id" | "name" | "avatar_url">;
 }
 
+export type SlideSourceType = "google_slides" | "google_drive_pdf" | "pdf_url" | "pdf_upload";
+
 export interface Slide {
   id: string;
   week_id: string;
   title: string;
   file_url: string;
+  source_type: SlideSourceType | null;
   page_count: number | null;
   uploaded_by: string | null;
   created_at: string;

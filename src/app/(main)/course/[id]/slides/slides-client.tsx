@@ -1,28 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
-import { PageResources } from "@/components/slides/page-resources";
+import { SlideViewer } from "@/components/slides/slide-viewer";
+import { SlideResourcesBar } from "@/components/slides/slide-resources-bar";
 import { cn } from "@/lib/utils";
 import { FileText } from "lucide-react";
 import type { Week, Slide } from "@/lib/types";
-
-// Dynamic import to avoid SSR issues with react-pdf
-const PdfViewer = dynamic(
-  () =>
-    import("@/components/slides/pdf-viewer").then((mod) => ({
-      default: mod.PdfViewer,
-    })),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex h-full items-center justify-center">
-        <p className="text-sm text-muted-foreground">뷰어 로딩 중...</p>
-      </div>
-    ),
-  }
-);
 
 interface SlidesClientProps {
   weeks: Week[];
@@ -34,7 +18,6 @@ export function SlidesClient({ weeks, slides, isAdmin }: SlidesClientProps) {
   const [selectedSlideId, setSelectedSlideId] = useState<string | null>(
     slides[0]?.id ?? null
   );
-  const [currentPage, setCurrentPage] = useState(1);
 
   const selectedSlide = slides.find((s) => s.id === selectedSlideId) ?? null;
 
@@ -80,10 +63,7 @@ export function SlidesClient({ weeks, slides, isAdmin }: SlidesClientProps) {
                 {weekSlides.map((slide) => (
                   <button
                     key={slide.id}
-                    onClick={() => {
-                      setSelectedSlideId(slide.id);
-                      setCurrentPage(1);
-                    }}
+                    onClick={() => setSelectedSlideId(slide.id)}
                     className={cn(
                       "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors",
                       selectedSlideId === slide.id
@@ -101,41 +81,27 @@ export function SlidesClient({ weeks, slides, isAdmin }: SlidesClientProps) {
         </div>
       </motion.div>
 
-      {/* PDF Viewer (center) */}
-      <div className="flex-1 min-w-0">
-        {selectedSlide ? (
-          <PdfViewer
-            key={selectedSlide.id}
-            fileUrl={selectedSlide.file_url}
-            onPageChange={setCurrentPage}
-            onLoadSuccess={(numPages) => {
-              // Optionally update slide page_count if not set
-            }}
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center">
-            <p className="text-sm text-muted-foreground">
-              좌측에서 슬라이드를 선택하세요.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Page Resources (right panel) */}
-      {selectedSlide && (
-        <motion.div
-          initial={{ opacity: 0, x: 10 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="w-64 shrink-0 overflow-y-auto border-l bg-background p-3"
-        >
-          <PageResources
-            key={`${selectedSlide.id}-${currentPage}`}
+      {/* Slide Viewer + Resources Bar (center) */}
+      <div className="flex flex-1 flex-col min-w-0">
+        <div className="flex-1 min-h-0">
+          {selectedSlide ? (
+            <SlideViewer key={selectedSlide.id} slide={selectedSlide} />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-sm text-muted-foreground">
+                좌측에서 슬라이드를 선택하세요.
+              </p>
+            </div>
+          )}
+        </div>
+        {selectedSlide && (
+          <SlideResourcesBar
+            key={`res-${selectedSlide.id}`}
             slideId={selectedSlide.id}
-            pageNumber={currentPage}
             isAdmin={isAdmin}
           />
-        </motion.div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
