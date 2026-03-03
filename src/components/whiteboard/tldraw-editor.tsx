@@ -1,13 +1,11 @@
 "use client";
 
-import { useCallback } from "react";
+import { Component, useCallback, useEffect, useMemo, useRef } from "react";
+import type { ErrorInfo, ReactNode } from "react";
 import {
   Tldraw,
   type Editor,
-  type TLShape,
-  type TLShapeId,
   type TLComponents,
-  DefaultShapeIndicator,
   useEditor,
   useValue,
 } from "tldraw";
@@ -16,63 +14,103 @@ import "tldraw/tldraw.css";
 
 import { stringToColor } from "@/lib/whiteboard-utils";
 
-interface NoteLabel {
-  id: TLShapeId;
-  authorName: string;
-  authorColor: string;
-  left: number;
-  top: number;
-  fontSize: number;
-  paddingV: number;
-  paddingH: number;
-  borderRadius: number;
+/**
+ * Error Boundary that catches runtime errors inside tldraw.
+ * Without this, an uncaught error unmounts the entire whiteboard panel.
+ */
+class TldrawErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("[TldrawErrorBoundary]", error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex h-full items-center justify-center">
+          <div className="text-center space-y-2">
+            <p className="text-sm text-destructive">
+              화이트보드에서 오류가 발생했습니다.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {this.state.error?.message}
+            </p>
+            <button
+              className="text-xs underline text-muted-foreground hover:text-foreground"
+              onClick={() => this.setState({ hasError: false, error: null })}
+            >
+              다시 시도
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 /**
  * Overlay component that shows author name on note shapes.
- * All reactive reads (shapes, camera, zoom) happen inside useValue
- * so the overlay re-renders on pan/zoom/shape changes.
+ * Wrapped in try/catch to prevent tldraw signal system crashes.
  */
 function NoteAuthorOverlay() {
   const editor = useEditor();
 
-  const labels = useValue<NoteLabel[]>(
+  const labels = useValue(
     "noteLabels",
     () => {
-      // Reading camera & zoom inside useValue makes this reactive to pan/zoom
-      const _camera = editor.getCamera();
-      const zoom = editor.getZoomLevel();
+      try {
+        const zoom = editor.getZoomLevel();
+        // Skip overlay rendering at extreme zoom levels to avoid
+        // computation issues with viewport coordinate conversion
+        if (zoom < 0.3) return [];
 
-      return editor
-        .getCurrentPageShapes()
-        .filter(
-          (s) =>
-            s.type === "note" &&
-            (s.meta as Record<string, unknown>)?.authorName
-        )
-        .map((shape) => {
-          const bounds = editor.getShapePageBounds(shape.id);
-          if (!bounds) return null;
+        return editor
+          .getCurrentPageShapes()
+          .filter(
+            (s) =>
+              s.type === "note" &&
+              (s.meta as Record<string, unknown>)?.authorName
+          )
+          .map((shape) => {
+            const bounds = editor.getShapePageBounds(shape.id);
+            if (!bounds) return null;
 
-          const meta = shape.meta as Record<string, unknown>;
-          const screenPoint = editor.pageToViewport({
-            x: bounds.x,
-            y: bounds.maxY,
-          });
+            const meta = shape.meta as Record<string, unknown>;
+            const screenPoint = editor.pageToViewport({
+              x: bounds.x,
+              y: bounds.maxY,
+            });
 
-          return {
-            id: shape.id,
-            authorName: meta.authorName as string,
-            authorColor: (meta.authorColor as string) ?? "#888",
-            left: screenPoint.x,
-            top: screenPoint.y + 4 * zoom,
-            fontSize: Math.max(10, 11 * zoom),
-            paddingV: 1 * zoom,
-            paddingH: 4 * zoom,
-            borderRadius: 3 * zoom,
-          };
-        })
-        .filter((l) => l !== null) as NoteLabel[];
+            return {
+              id: shape.id,
+              authorName: meta.authorName as string,
+              authorColor: (meta.authorColor as string) ?? "#888",
+              left: screenPoint.x,
+              top: screenPoint.y + 4 * zoom,
+              fontSize: Math.max(10, 11 * zoom),
+              paddingV: 1 * zoom,
+              paddingH: 4 * zoom,
+              borderRadius: 3 * zoom,
+            };
+          })
+          .filter(
+            (l): l is NonNullable<typeof l> => l !== null
+          );
+      } catch {
+        return [];
+      }
     },
     [editor]
   );
@@ -112,10 +150,6 @@ function NoteAuthorOverlay() {
   );
 }
 
-/**
- * Custom component placed in tldraw's OnTheCanvas slot
- * to render author labels on note shapes.
- */
 function OnTheCanvas() {
   return <NoteAuthorOverlay />;
 }
@@ -138,14 +172,20 @@ export function TldrawEditor({
   userName,
   userAvatar,
 }: TldrawEditorProps) {
-  const store = useSyncDemo({
-    roomId,
-    userInfo: {
+  // Memoize userInfo to prevent useSyncDemo from recreating the WebSocket
+  // connection. Without this, each render creates a new object reference,
+  // which cascades through tldraw's internal hooks and tears down the
+  // connection, causing whiteboard content to disappear.
+  const userInfo = useMemo(
+    () => ({
       id: userId,
       name: userName,
       color: stringToColor(userName),
-    },
-  });
+    }),
+    [userId, userName]
+  );
+
+  const storeWithStatus = useSyncDemo({ roomId, userInfo });
 
   const handleMount = useCallback(
     (editor: Editor) => {
@@ -167,9 +207,18 @@ export function TldrawEditor({
     [userName]
   );
 
+  // Let tldraw handle all status transitions (loading/error/synced) internally.
+  // Passing TLStoreWithStatus directly is the intended API — tldraw shows its
+  // own loading spinner and manages store lifecycle correctly.
   return (
-    <div className="h-full w-full">
-      <Tldraw store={store} onMount={handleMount} components={components} />
+    <div className="absolute inset-0">
+      <TldrawErrorBoundary>
+        <Tldraw
+          store={storeWithStatus}
+          onMount={handleMount}
+          components={components}
+        />
+      </TldrawErrorBoundary>
     </div>
   );
 }

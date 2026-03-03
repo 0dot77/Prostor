@@ -40,7 +40,7 @@ export async function updateSession(request: NextRequest) {
     (path) =>
       request.nextUrl.pathname === path ||
       request.nextUrl.pathname.startsWith("/auth/")
-  );
+  ) || (process.env.NODE_ENV === "development" && request.nextUrl.pathname.startsWith("/whiteboard-test"));
 
   if (!user && !isPublicPath) {
     // Redirect to login if not authenticated
